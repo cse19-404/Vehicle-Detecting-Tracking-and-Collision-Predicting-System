@@ -52,7 +52,7 @@ def predict_collision(processed_dict,height,width,image_np):
     crash_count_frames = crash_count_frames - 1
 
   if crash_count_frames > 0:
-    cv2.putText(image_np,"WARNING !!!" ,(100,100), font, 4, (255,0,0),3,cv2.LINE_AA)
+    cv2.putText(image_np,"WARNING !!!" ,(100,100), font, 4, (0,0,255),3,cv2.LINE_AA)
 
 
 def process_single_img(model, image):
