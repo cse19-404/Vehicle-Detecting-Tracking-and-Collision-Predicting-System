@@ -51,7 +51,7 @@ def estimate_collide(output_dict,height,width,image_np):
   if vehicle_crash == 0:
     crash_count_frames = crash_count_frames - 1
 
-  if crash_count_frames > 0 and max_curr_obj_area <= 100000:
+  if crash_count_frames > 0:
     cv2.putText(image_np,"WARNING !!!" ,(100,100), font, 4, (255,0,0),3,cv2.LINE_AA)
 
 
