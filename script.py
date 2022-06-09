@@ -25,74 +25,74 @@ detection_model = tf.saved_model.load(str(model_dir))
 detection_model = detection_model.signatures['serving_default']
 
 crash_count_frames = 0
-def estimate_collide(output_dict,height,width,image_np):
+def predict_collision(processed_dict,height,width,image_np):
   global crash_count_frames
-  vehicle_crash = 0
-  max_curr_obj_area = 0
-  centerX = centerY = 0
+  is_crashed = 0
+  max_area = 0
+  x_center = y_center = 0
   details = [0 , 0 , 0 , 0]
-  for ind,scr in enumerate(output_dict['detection_classes']):
+  for ind,scr in enumerate(processed_dict['detection_classes']):
     if scr in [2, 3, 4, 6, 8]:
-      ymin, xmin, ymax, xmax = output_dict['detection_boxes'][ind]
-      score = output_dict['detection_scores'][ind]
+      ymin, xmin, ymax, xmax = processed_dict['detection_boxes'][ind]
+      score = processed_dict['detection_scores'][ind]
       if score>0.5:
         obj_area = int((xmax - xmin)*width * (ymax - ymin)*height)
-        if obj_area > max_curr_obj_area:
-          max_curr_obj_area = obj_area
+        if obj_area > max_area:
+          max_area = obj_area
           details = [ymin, xmin, ymax, xmax]
 
-  centerX , centerY = (details[1] + details[3])/2 , (details[0] + details[2])/2
-  if max_curr_obj_area > 70000 and ((centerX < 0.2 and details[2] > 0.9) or
-                                    (0.2 <= centerX <= 0.8) or
-                                    (centerX > 0.8 and details[2] > 0.9)):
-    vehicle_crash = 1
+  x_center , y_center = (details[1] + details[3])/2 , (details[0] + details[2])/2
+  if max_area > 70000 and ((x_center < 0.2 and details[2] > 0.9) or
+                                    (0.2 <= x_center <= 0.8) or
+                                    (x_center > 0.8 and details[2] > 0.9)):
+    is_crashed = 1
     crash_count_frames = 15
 
-  if vehicle_crash == 0:
+  if is_crashed == 0:
     crash_count_frames = crash_count_frames - 1
 
   if crash_count_frames > 0:
     cv2.putText(image_np,"WARNING !!!" ,(100,100), font, 4, (255,0,0),3,cv2.LINE_AA)
 
 
-def run_inference_for_single_image(model, image):
+def process_single_img(model, image):
   image = np.asarray(image)
   input_tensor = tf.convert_to_tensor(image)
   input_tensor = input_tensor[tf.newaxis,...]
 
-  output_dict = model(input_tensor)
+  processed_dict = model(input_tensor)
 
-  num_detections = int(output_dict.pop('num_detections'))
-
-
-  output_dict = {key:value[0, :num_detections].numpy() 
-                 for key,value in output_dict.items()}
-  output_dict['num_detections'] = num_detections
-  output_dict['detection_classes'] = output_dict['detection_classes'].astype(np.int64)
-  return output_dict
+  num_detections = int(processed_dict.pop('num_detections'))
 
 
-def show_inference(model, image_path):
+  processed_dict = {key:value[0, :num_detections].numpy() 
+                 for key,value in processed_dict.items()}
+  processed_dict['num_detections'] = num_detections
+  processed_dict['detection_classes'] = processed_dict['detection_classes'].astype(np.int64)
+  return processed_dict
+
+
+def show_processed_img(model, image_path):
   image_np = np.array(image_path)
   height,width,channel = image_np.shape
 
-  output_dict = run_inference_for_single_image(model, image_np)
-  estimate_collide(output_dict,height,width,image_np)
+  processed_dict = process_single_img(model, image_np)
+  predict_collision(processed_dict,height,width,image_np)
 
   vis_util.visualize_boxes_and_labels_on_image_array(
       image_np,
-      output_dict['detection_boxes'],
-      output_dict['detection_classes'],
-      output_dict['detection_scores'],
+      processed_dict['detection_boxes'],
+      processed_dict['detection_classes'],
+      processed_dict['detection_scores'],
       category_index,
-      instance_masks=output_dict.get('detection_masks_reframed', None),
+      instance_masks=processed_dict.get('detection_masks_reframed', None),
       use_normalized_coordinates=True,
       line_thickness=8)
 
   return image_np
 
-filename = input("Enter the video name: ");
-print ("Wait until the video is processed...");
+filename = input("Enter the video name: ")
+print ("Wait until the video is processed...")
 
 cap = cv2.VideoCapture(f'./videos/{filename}.mp4')
 time.sleep(2.0)
@@ -101,14 +101,14 @@ cap.set(1,0)
 
 fps = FPS().start()
 
-ctt = 0
+processed_count = 0
 while True:
     (grabbed, frame) = cap.read()
     frame = frame[ :-150, : , :]
-    ctt = ctt + 1
-    if ctt==3334:
+    processed_count = processed_count + 1
+    if processed_count==3334:
       break
-    frame=show_inference(detection_model, frame)
+    frame=show_processed_img(detection_model, frame)
 
 
     cv2.imshow("version", frame)
